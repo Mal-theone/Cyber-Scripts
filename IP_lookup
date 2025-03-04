@@ -1,0 +1,87 @@
+$apiKey = ""
+$apikey2 =""
+
+$VirusTotalBaseurl = "https://www.virustotal.com/api/v3/ip_addresses/"
+$abuseIPdbBaseUrl = "https://api.abuseipdb.com/api/v2/check?"
+
+# Path to the file containing IP addresses (each IP should be on a new line)
+$ipListFile = "iplist.txt"
+
+# Headers required for VirusTotal v3 API requests
+$virustotalHeader = @{
+ "x-apikey" = $apiKey
+}
+
+# Headers sent to the abuseipDB API
+$abuseheaders = @{
+    "Key" = $apikey2
+    "Accept" = "application/json"
+}
+
+# Read all IPs from the file into an array
+$ipAddresses = Get-Content $ipListFile
+
+# Loop through each IP address and query VirusTotal v3 API
+foreach ($ip in $ipAddresses) {
+    Write-Host "Checking IP: $ip"
+
+ # Send the API request
+ try {
+ $virusTotalUrl = "$virusTotalBaseUrl$ip"
+ $virusTotalResponse = Invoke-RestMethod -Uri $virusTotalUrl -Method Get -Headers $virustotalHeader
+
+ # Check if the response contains data about the IP
+ if ($virusTotalResponse.data) {
+ $ipData = $virusTotalResponse.data
+
+ Write-Host "Virus Total Analysis"
+
+ # Display malicious information from the last analysis stats
+ $lastAnalysisStats = $ipData.attributes.last_analysis_stats
+
+ Write-Host "Harmless: $($lastAnalysisStats.harmless)"
+ Write-Host "Malicious: $($lastAnalysisStats.malicious)"
+ Write-Host "Suspicious: $($lastAnalysisStats.suspicious)"
+ Write-Host "Undetected: $($lastAnalysisStats.undetected)"
+ Write-Host "Timeout: $($lastAnalysisStats.timeout)"
+ 
+ # Check if any vendors flagged the IP as malicious
+ if ($lastAnalysisStats.malicious -gt 0) {
+ Write-Host "The IP has been flagged as malicious!" -ForegroundColor Red
+ } else {
+ Write-Host "The IP is not flagged as malicious." -ForegroundColor Green
+ }
+
+ # Print additional information
+#  Write-Host "ASN: $($ipData.attributes.as_owner)"
+#  Write-Host "Country: $($ipData.attributes.country)"
+#  Write-Host "Reputation: $($ipData.attributes.reputation)"
+#  Write-Host "Whois: $($ipData.attributes.whois)"
+ } else {
+ Write-Host "No information available for IP: $ip" -ForegroundColor Yellow
+ }
+
+ } catch {
+ Write-Host "Failed to retrieve data for IP: $ip. Error: $($_.Exception.Message)" -ForegroundColor Red
+ }
+
+ Write-Host "----------------------------------------------------"
+}
+# querying AbuseIPDB api
+
+
+try {
+    $abuseIPdbBaseUrl = "$abuseIpBaseUrlipAddress=[$ip]&maxAgeInDays=90" 
+    $abuse_Response = Invoke-RestMethod -Uri $abuseurl -Method Get -Headers $abuseHeaders
+
+    if ($abuse_Response.data) {
+        Write-Host "AbuseIP Report for IP"
+        Write-Host "Total Reports: $($abuse_Response.data.totalReports)"
+        Write-Host "Confidence score: $($abuse_Response.data.abuseConfidenceScore)"
+        Write-Host "Last Reported: $($abuse_Response.data.lastReportedAt)"
+    } else {
+        Write-Host "No data on IP: $ip" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "This did not work. Error: $($_.Exception.Message)"
+} 
